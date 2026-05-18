@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from asfuzz.config import ASFuzzConfig, BudgetConfig, FuzzerConfig
+from asfuzz.config import ASFuzzConfig, BudgetConfig, FuzzerConfig, OracleConfig
 from asfuzz.runner import pipeline
 from asfuzz.runner.worker import WorkerTimeout
 from asfuzz.spec.ops_catalog import make_unary
@@ -51,6 +51,7 @@ def test_first_timeout_aborts_remaining_mrs_and_backends(tmp_path, monkeypatch):
         db_path=str(tmp_path / "bugs.sqlite"),
         budget=BudgetConfig(compile_timeout_sec=1, run_timeout_sec=1),
         fuzzer=FuzzerConfig(max_work_items=1024),
+        oracle=OracleConfig(cross_backend=False),
     )
     spec = make_unary([3], op="tanh")
     db = FakeDB()

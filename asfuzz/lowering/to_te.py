@@ -169,29 +169,38 @@ def _lower_softmax(spec: OpSpec):
     dtype = spec.dtype()
     shape = spec.shape_of("A")
     axis = int(spec.extra.get("axis", len(shape) - 1))
-    if axis != len(shape) - 1:
-        raise NotImplementedError("TVM softmax lowering currently supports last axis only")
+    rank = len(shape)
     A = te.placeholder(shape, name="A", dtype=dtype)
-    outer_shape = shape[:-1] or (1,)
+    outer_shape = shape[:axis] + shape[axis + 1 :] or (1,)
     reduce_extent = shape[axis]
     rmax = te.reduce_axis((0, reduce_extent), name="rmax")
     rsum = te.reduce_axis((0, reduce_extent), name="rsum")
 
+    def remove_axis(idx):
+        if rank == 1:
+            return (0,)
+        return idx[:axis] + idx[axis + 1 :]
+
+    def insert_axis(outer_idx, red):
+        if rank == 1:
+            return (red,)
+        return outer_idx[:axis] + (red,) + outer_idx[axis:]
+
     def a_at(outer_idx, red):
-        if len(shape) == 1:
+        if rank == 1:
             return A[red]
-        return A[(*outer_idx, red)]
+        return A[insert_axis(outer_idx, red)]
 
     Max = te.compute(outer_shape, lambda *idx: te.max(a_at(idx, rmax), axis=rmax), name="Max")
-    Exp = te.compute(shape, lambda *idx: te.exp(A[idx] - Max[idx[:-1] if len(shape) > 1 else (0,)]), name="Exp")
+    Exp = te.compute(shape, lambda *idx: te.exp(A[idx] - Max[remove_axis(idx)]), name="Exp")
 
     def exp_at(outer_idx, red):
-        if len(shape) == 1:
+        if rank == 1:
             return Exp[red]
-        return Exp[(*outer_idx, red)]
+        return Exp[insert_axis(outer_idx, red)]
 
     Sum = te.compute(outer_shape, lambda *idx: te.sum(exp_at(idx, rsum), axis=rsum), name="Sum")
-    C = te.compute(shape, lambda *idx: Exp[idx] / Sum[idx[:-1] if len(shape) > 1 else (0,)], name="C")
+    C = te.compute(shape, lambda *idx: Exp[idx] / Sum[remove_axis(idx)], name="C")
     return [A], C
 
 

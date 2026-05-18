@@ -24,7 +24,7 @@ fuzzer:
     reduce: 1.5
     softmax: 1.5
     conv2d: 2.0
-  dtypes: ["float32"]
+  dtypes: ["float32", "float16"]
 mrs:
   - seed_invariance
   - budget_monotonic
@@ -34,11 +34,12 @@ mrs:
   - algebraic
   - decomposition
 oracle:
+  cross_backend: true
   rtol:
     float32: 0.001
-    float16: 0.01
+    float16: 0.05
     bfloat16: 0.05
   atol:
     float32: 0.0001
-    float16: 0.001
+    float16: 0.005
     bfloat16: 0.005

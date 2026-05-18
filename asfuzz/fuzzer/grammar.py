@@ -81,24 +81,36 @@ class GrammarFuzzer:
         if kind == "reduce":
             rank = self.rng.choice(self._ranks())
             shape = self._shape(rank=rank)
-            axis = self.rng.randrange(rank)
+            if self.complexity == "stress" and self.rng.random() < 0.65:
+                heavy_axis = self.rng.randrange(rank)
+                shape[heavy_axis] = self.rng.choice([63, 64, 65, 96, 127, 128, 129, 191, 192, 255, 256])
+                axis = heavy_axis
+            else:
+                axis = self.rng.randrange(rank)
             op = self.rng.choice(["sum", "mean", "max"])
             return make_reduce(shape, axis=axis, op=op, dtype=dtype, keepdims=self.rng.random() < self._prob("keepdims"))
         if kind == "softmax":
             rank = self.rng.choice([r for r in self._ranks() if r >= 2])
             shape = self._shape(rank=rank)
-            return make_softmax(shape, axis=rank - 1, dtype=dtype)
+            if self.complexity == "stress" and self.rng.random() < 0.75:
+                axis = self.rng.randrange(rank)
+                shape[axis] = self.rng.choice([31, 63, 64, 65, 96, 127, 128, 129, 191, 192])
+            else:
+                axis = rank - 1
+            return make_softmax(shape, axis=axis, dtype=dtype)
         if kind == "conv2d":
             n = self.rng.choice([1, 2, 3, 4] if self.complexity in {"large", "stress"} else [1, 2])
             h = self.rng.choice(self._spatial_dims())
             w = self.rng.choice(self._spatial_dims())
             c = self.rng.choice([1, 3, 4, 8, 16, 31, 32] if self.complexity == "stress" else [1, 3, 4, 8, 16])
             f = self.rng.choice([1, 4, 8, 16, 31, 32, 64] if self.complexity == "stress" else [1, 4, 8, 16, 32])
-            kh = self.rng.choice([1, 2, 3, 5])
-            kw = self.rng.choice([1, 2, 3, 5])
-            stride = self.rng.choice([1, 2])
-            dilation = self.rng.choice([1, 1, 2])
-            pad = self.rng.choice([0, kh // 2, max(0, dilation * (kh - 1) // 2)])
+            kernels = [1, 2, 3, 5, 7] if self.complexity == "stress" else [1, 2, 3, 5]
+            kh = self.rng.choice(kernels)
+            kw = self.rng.choice(kernels)
+            stride = self.rng.choice([1, 2, 3] if self.complexity == "stress" else [1, 2])
+            dilation = self.rng.choice([1, 1, 2, 3] if self.complexity == "stress" else [1, 1, 2])
+            pad_y = max(0, dilation * (kh - 1))
+            pad = self.rng.choice([0, kh // 2, max(0, pad_y // 2), pad_y])
             return make_conv2d(n, h, w, c, f, kh, kw, stride=stride, pad=pad, dilation=dilation, dtype=dtype, act=self.rng.choice([None, "relu", "tanh"]))
         raise ValueError(kind)
 
@@ -120,14 +132,14 @@ class GrammarFuzzer:
             return [1, 2, 3, 4, 7, 8, 13, 16, 31, 32, 63, 64, 65, 96]
         if family == "matmul":
             return [1, 2, 3, 4, 7, 8, 13, 15, 16, 31, 32, 63, 64, 65, 96, 127, 128, 191, 192, 255, 256]
-        return [1, 2, 3, 4, 7, 8, 13, 16, 31, 32, 63, 64, 65, 96, 127, 128, 129]
+        return [1, 2, 3, 4, 7, 8, 13, 16, 31, 32, 63, 64, 65, 96, 127, 128, 129, 191, 192]
 
     def _spatial_dims(self) -> list[int]:
         if self.complexity == "small":
             return [8, 13, 16, 31]
         if self.complexity == "medium":
             return [8, 13, 16, 31, 32, 47, 64]
-        return [8, 13, 16, 31, 32, 47, 63, 64, 65, 96]
+        return [8, 13, 16, 31, 32, 47, 63, 64, 65, 96, 127, 128]
 
     def _prob(self, feature: str) -> float:
         if feature == "matmul_bias":

@@ -167,6 +167,8 @@ def run_one_spec(cfg: ASFuzzConfig, spec: OpSpec, index: int, cases_dir: Path, b
     failures = []
     skipped = []
     abort_case = False
+    if cfg.oracle.cross_backend:
+        abort_case = _run_cross_backend_oracle(cfg, spec, inputs, case_dir, backends, db, failures, skipped)
     for backend in backends:
         if abort_case:
             skipped.append({"backend": backend.name, "reason": "case_aborted_after_timeout"})
@@ -242,6 +244,73 @@ def run_one_spec(cfg: ASFuzzConfig, spec: OpSpec, index: int, cases_dir: Path, b
     }
     (case_dir / "result.json").write_text(json.dumps(result, indent=2, sort_keys=True))
     return result
+
+
+def _run_cross_backend_oracle(cfg: ASFuzzConfig, spec: OpSpec, inputs, case_dir: Path, backends, db: BugDB, failures: list, skipped: list) -> bool:
+    reference_backend = ""
+    reference_outputs = None
+    timeout_sec = cfg.budget.compile_timeout_sec + cfg.budget.run_timeout_sec
+    for backend in backends:
+        if not backend.supports(spec):
+            continue
+        print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr=cross_backend start", flush=True)
+        start = time.time()
+        try:
+            outputs, elapsed_ms = run_backend_once(backend, spec, inputs, cfg.target, cfg.budget.trials_smoke, cfg.seed, timeout_sec)
+            outputs = _copy_outputs(outputs)
+            db.record_iteration(spec, backend.name, "cross_backend", "ok", elapsed_ms)
+            if reference_outputs is None:
+                reference_backend = backend.name
+                reference_outputs = outputs
+                print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr=cross_backend reference", flush=True)
+                continue
+            cmp = _compare_output_dict(reference_outputs, outputs, spec, cfg)
+            if not cmp["ok"]:
+                repro_path = write_repro(case_dir, backend.name, "cross_backend", f"vs_{reference_backend}")
+                detail = {
+                    "reference_backend": reference_backend,
+                    "backend": backend.name,
+                    "compare": cmp,
+                    "case": str(case_dir),
+                }
+                failures.append(
+                    {
+                        "case": str(case_dir),
+                        "repro": str(repro_path),
+                        "backend": backend.name,
+                        "mr": "cross_backend",
+                        "variant": f"vs_{reference_backend}",
+                        "status": "mismatch",
+                        "detail": detail,
+                    }
+                )
+                db.record_bug(spec, backend.name, "cross_backend", "mismatch", str(repro_path), detail)
+            print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr=cross_backend done", flush=True)
+        except WorkerTimeout as exc:
+            elapsed_ms = (time.time() - start) * 1000.0
+            db.record_iteration(spec, backend.name, "cross_backend", "timeout", elapsed_ms)
+            repro_path = write_repro(case_dir, backend.name, "cross_backend", "timeout")
+            detail = {
+                "exception": type(exc).__name__,
+                "message": str(exc),
+                "case": str(case_dir),
+                "triage": "case_aborted_after_first_timeout",
+            }
+            failures.append({"case": str(case_dir), "repro": str(repro_path), "backend": backend.name, "mr": "cross_backend", "status": "timeout", "detail": detail})
+            db.record_bug(spec, backend.name, "cross_backend", "timeout", str(repro_path), detail)
+            print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr=cross_backend timeout={exc}; aborting remaining checks for this case", flush=True)
+            return True
+        except Exception as exc:
+            elapsed_ms = (time.time() - start) * 1000.0
+            db.record_iteration(spec, backend.name, "cross_backend", "error", elapsed_ms)
+            repro_path = write_repro(case_dir, backend.name, "cross_backend", "error")
+            detail = {"exception": type(exc).__name__, "message": str(exc), "case": str(case_dir)}
+            failures.append({"case": str(case_dir), "repro": str(repro_path), "backend": backend.name, "mr": "cross_backend", "status": "error", "detail": detail})
+            db.record_bug(spec, backend.name, "cross_backend", "error", str(repro_path), detail)
+            print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr=cross_backend error={type(exc).__name__}: {exc}", flush=True)
+    if reference_outputs is None:
+        skipped.append({"backend": "all", "reason": "cross_backend_no_supported_backend"})
+    return False
 
 
 def replay_case(cfg: ASFuzzConfig, spec_path: str | Path) -> dict:

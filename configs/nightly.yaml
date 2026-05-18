@@ -3,7 +3,7 @@ target: "llvm"
 out_dir: "runs/nightly"
 db_path: "runs/nightly/asfuzz_bugs.sqlite"
 budget:
-  iterations: 500
+  iterations: 5000
   trials_smoke: 0
   trials_full: 0
   compile_timeout_sec: 120
@@ -26,7 +26,7 @@ fuzzer:
     reduce: 2.0
     softmax: 2.0
     conv2d: 2.5
-  dtypes: ["float32"]
+  dtypes: ["float32", "float16"]
 mrs:
   - seed_invariance
   - budget_monotonic
@@ -36,7 +36,10 @@ mrs:
   - algebraic
   - decomposition
 oracle:
+  cross_backend: true
   rtol:
     float32: 0.001
+    float16: 0.05
   atol:
     float32: 0.0001
+    float16: 0.005

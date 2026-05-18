@@ -72,14 +72,15 @@ def make_reduce(shape: list[int], axis: int, op: str = "sum", dtype: str = "floa
     in_axes = [(f"d{i}", dim) for i, dim in enumerate(shape)]
     reduce_axis = f"d{axis}"
     if keepdims:
-        out_axes = [name for name, _ in in_axes]
+        out_axes = [f"d{i}_keep" if i == axis else name for i, (name, _) in enumerate(in_axes)]
+        all_axes = in_axes + [(f"d{axis}_keep", 1)]
     else:
         out_axes = [name for i, (name, _) in enumerate(in_axes) if i != axis]
-    if not out_axes:
-        out_axes = ["scalar"]
-        all_axes = in_axes + [("scalar", 1)]
-    else:
-        all_axes = in_axes
+        if not out_axes:
+            out_axes = ["scalar"]
+            all_axes = in_axes + [("scalar", 1)]
+        else:
+            all_axes = in_axes
     return OpSpec(
         name=f"reduce_{op}_{'x'.join(map(str, shape))}_axis{axis}",
         op_kind="reduce",

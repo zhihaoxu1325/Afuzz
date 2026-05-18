@@ -13,6 +13,5 @@ class BudgetMonotonicMR(MetamorphicRelation):
     def variants(self, spec: OpSpec, inputs, seed: int) -> list[MRCase]:
         return [
             MRCase(spec, inputs, identity, seed, 0, "trials=0"),
-            MRCase(spec, inputs, identity, seed, 16, "trials=16"),
+            MRCase(spec, inputs, identity, seed, 64, "trials=64"),
         ]
-

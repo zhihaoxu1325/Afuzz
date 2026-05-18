@@ -18,7 +18,11 @@ class HalideBackend(SchedulerBackend):
             import halide  # noqa: F401
         except Exception:
             return False
-        return spec.dtype() == "float32" and spec.op_kind in {"matmul", "elementwise", "unary", "reduce", "softmax", "softmax_decomposed"}
+        if spec.dtype() != "float32":
+            return False
+        if spec.op_kind in {"softmax", "softmax_decomposed"}:
+            return int(spec.extra.get("axis", len(spec.shape_of("A")) - 1)) == len(spec.shape_of("A")) - 1
+        return spec.op_kind in {"matmul", "elementwise", "unary", "reduce"}
 
     def schedule_and_build(self, spec: OpSpec, target: str, trials: int, seed: int) -> CompiledArtifact:
         import halide as hl

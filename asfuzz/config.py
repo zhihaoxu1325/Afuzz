@@ -32,6 +32,7 @@ class FuzzerConfig(BaseModel):
 class OracleConfig(BaseModel):
     rtol: dict[str, float] = Field(default_factory=lambda: {"float32": 1e-3})
     atol: dict[str, float] = Field(default_factory=lambda: {"float32": 1e-4})
+    cross_backend: bool = True
 
 
 class ASFuzzConfig(BaseModel):
