@@ -1,0 +1,53 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local packaging artifacts
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# ASFuzz generated outputs
+runs/
+!runs/.gitkeep
+*.sqlite
+*.sqlite3
+*.db
+*.npz
+*.npy
+*.pkl
+*.pickle
+
+# TVM / MetaSchedule / autoscheduler local artifacts
+.pkl_memoize_py3/
+*.json.log
+database_tuning_record.json
+database_workload.json
+measure_records/
+
+# Native build outputs
+*.o
+*.so
+*.dylib
+*.a
+*.out
+*.log
+Code.md
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

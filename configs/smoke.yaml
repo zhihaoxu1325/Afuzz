@@ -1,0 +1,40 @@
+seed: 7
+target: "llvm"
+out_dir: "runs/smoke"
+db_path: "runs/smoke/asfuzz_bugs.sqlite"
+budget:
+  iterations: 8
+  trials_smoke: 0
+  trials_full: 0
+  compile_timeout_sec: 30
+  run_timeout_sec: 10
+backends: ["numpy", "tvm", "metaschedule", "halide"]
+fuzzer:
+  mode: "grammar"
+  max_work_items: 500000
+  complexity: "medium"
+  diversity_candidates: 32
+  min_complexity_score: 0.0
+  complexity_weight: 0.25
+  novelty_weight: 1.0
+  op_weights:
+    matmul: 2.0
+    elementwise: 2.0
+    unary: 1.0
+    reduce: 1.0
+    softmax: 1.0
+    conv2d: 0.5
+  dtypes: ["float32"]
+mrs:
+  - seed_invariance
+  - budget_monotonic
+  - axis_permute
+  - pad_slice
+  - batch_split
+  - algebraic
+  - decomposition
+oracle:
+  rtol:
+    float32: 0.001
+  atol:
+    float32: 0.0001

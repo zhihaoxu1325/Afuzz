@@ -1,0 +1,19 @@
+[project]
+name = "asfuzz"
+version = "0.1.0"
+description = "DL compiler auto-scheduler metamorphic fuzzing framework"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pydantic",
+  "pyyaml",
+  "hypothesis",
+]
+
+[project.scripts]
+asfuzz = "asfuzz.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+

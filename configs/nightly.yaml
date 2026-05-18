@@ -1,0 +1,42 @@
+seed: 42
+target: "llvm"
+out_dir: "runs/nightly"
+db_path: "runs/nightly/asfuzz_bugs.sqlite"
+budget:
+  iterations: 500
+  trials_smoke: 0
+  trials_full: 0
+  compile_timeout_sec: 120
+  run_timeout_sec: 30
+  max_workers: 0
+  cpu_utilization: 0.8
+backends: ["numpy", "tvm", "metaschedule", "halide"]
+fuzzer:
+  mode: "grammar"
+  max_work_items: 16000000
+  complexity: "stress"
+  diversity_candidates: 160
+  min_complexity_score: 0.12
+  complexity_weight: 0.55
+  novelty_weight: 1.0
+  op_weights:
+    matmul: 2.5
+    elementwise: 1.5
+    unary: 1.0
+    reduce: 2.0
+    softmax: 2.0
+    conv2d: 2.5
+  dtypes: ["float32"]
+mrs:
+  - seed_invariance
+  - budget_monotonic
+  - axis_permute
+  - pad_slice
+  - batch_split
+  - algebraic
+  - decomposition
+oracle:
+  rtol:
+    float32: 0.001
+  atol:
+    float32: 0.0001
