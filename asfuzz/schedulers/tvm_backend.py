@@ -12,6 +12,7 @@ import tvm
 from asfuzz.lowering.to_te import lower_to_schedule
 from asfuzz.lowering.to_tir import lower_to_tir
 from asfuzz.schedulers.base import CompiledArtifact, SchedulerBackend
+from asfuzz.spec.ops_catalog import SUPPORTED_OP_KINDS
 from asfuzz.spec.opspec import OpSpec
 
 
@@ -20,7 +21,7 @@ class TVMBackend(SchedulerBackend):
     schedule_policy = "default"
 
     def supports(self, spec: OpSpec) -> bool:
-        return spec.op_kind in {"matmul", "elementwise", "unary", "reduce", "softmax", "softmax_decomposed", "conv2d"} and spec.dtype() in {"float32", "float16"}
+        return spec.op_kind in (SUPPORTED_OP_KINDS | {"softmax_decomposed", "reduce_split"}) and spec.dtype() in {"float32", "float16"}
 
     def schedule_and_build(self, spec: OpSpec, target: str, trials: int, seed: int) -> CompiledArtifact:
         _require_target_codegen(target)

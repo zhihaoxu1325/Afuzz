@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from asfuzz.schedulers.base import CompiledArtifact, SchedulerBackend
+from asfuzz.spec.ops_catalog import SUPPORTED_OP_KINDS
 from asfuzz.spec.opspec import OpSpec
 from asfuzz.spec.reference import run_reference
 
@@ -11,7 +12,7 @@ class NumpyBackend(SchedulerBackend):
     name = "numpy"
 
     def supports(self, spec: OpSpec) -> bool:
-        return spec.op_kind in {"matmul", "elementwise", "unary", "reduce", "softmax", "softmax_decomposed", "conv2d"}
+        return spec.op_kind in (SUPPORTED_OP_KINDS | {"softmax_decomposed", "reduce_split"})
 
     def schedule_and_build(self, spec: OpSpec, target: str, trials: int, seed: int) -> CompiledArtifact:
         return CompiledArtifact(self.name, spec, target, trials, seed, handle=None)

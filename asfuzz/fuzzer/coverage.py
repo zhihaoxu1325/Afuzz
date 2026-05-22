@@ -75,8 +75,22 @@ def complexity_score(spec: OpSpec, max_work_items: int) -> float:
     if max_work_items <= 1:
         return 0.0
     score = math.log2(max(1, work_items(spec))) / math.log2(max_work_items)
-    if spec.op_kind in {"conv2d", "softmax", "reduce"}:
+    if spec.op_kind in {"conv2d", "softmax", "reduce", "batch_matmul", "pool2d", "layer_norm", "elem_reduce", "matmul_chain", "matmul_softmax"}:
         score += 0.08
+    if spec.op_kind in {"transpose", "broadcast", "reshape", "slice", "pad", "concat"}:
+        score += 0.06
+    if spec.op_kind == "matmul" and (spec.extra.get("with_bias") or spec.epilogue):
+        score += 0.04
+    if spec.op_kind in {"batch_matmul", "matmul_chain", "matmul_softmax"}:
+        score += 0.08
+    if spec.op_kind == "conv2d" and (spec.extra.get("stride") != 1 or spec.extra.get("dilation", 1) != 1):
+        score += 0.06
+    if spec.op_kind == "pool2d" and (spec.extra.get("stride") != 1 or spec.extra.get("pad", 0) != 0):
+        score += 0.05
+    if spec.op_kind in {"reduce", "softmax", "layer_norm", "elem_reduce"}:
+        input_rank = len(spec.shape_of("A"))
+        if spec.extra.get("axis") not in {None, input_rank - 1}:
+            score += 0.05
     if any(axis.size in {1, 3, 7, 13, 31, 63, 65, 127, 129} for axis in spec.axes.values()):
         score += 0.06
     if len(spec.tensors_by_role("output")[0].axes) >= 4:
@@ -102,8 +116,19 @@ def shape_features(spec: OpSpec) -> list[str]:
         features.append(f"conv_stride:{spec.extra.get('stride')}")
         features.append(f"conv_pad:{spec.extra.get('pad')}")
         features.append(f"conv_dilation:{spec.extra.get('dilation', 1)}")
-    if spec.op_kind in {"reduce", "softmax"}:
+    if spec.op_kind == "pool2d":
+        features.append(f"pool_op:{spec.extra.get('op')}")
+        features.append(f"pool_stride:{spec.extra.get('stride')}")
+        features.append(f"pool_pad:{spec.extra.get('pad')}")
+    if spec.op_kind in {"reduce", "softmax", "layer_norm", "elem_reduce", "matmul_softmax"}:
         features.append(f"reduce_axis:{spec.extra.get('axis')}")
-    if spec.op_kind in {"elementwise", "unary", "reduce"}:
+    if spec.op_kind in {"elementwise", "unary", "reduce", "pool2d"}:
         features.append(f"inner_op:{spec.extra.get('op')}")
+    if spec.op_kind == "elem_reduce":
+        features.append(f"elem_op:{spec.extra.get('elem_op')}")
+        features.append(f"reduce_op:{spec.extra.get('reduce_op')}")
+    if spec.op_kind in {"transpose", "broadcast", "reshape", "slice", "pad", "concat"}:
+        features.append("shape_transform")
+    if spec.op_kind in {"elem_reduce", "matmul_chain", "matmul_softmax"}:
+        features.append("composite")
     return features

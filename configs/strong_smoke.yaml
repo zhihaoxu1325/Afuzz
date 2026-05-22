@@ -1,22 +1,22 @@
-seed: 42
+seed: 99
 target: "llvm"
-out_dir: "runs/nightly"
-db_path: "runs/nightly/asfuzz_bugs.sqlite"
+out_dir: "runs/strong_smoke"
+db_path: "runs/strong_smoke/asfuzz_bugs.sqlite"
 budget:
-  iterations: 5000
+  iterations: 4
   trials_smoke: 0
   trials_full: 0
-  compile_timeout_sec: 180
-  run_timeout_sec: 30
-  max_workers: 0
+  compile_timeout_sec: 60
+  run_timeout_sec: 15
+  max_workers: 2
   cpu_utilization: 0.8
-backends: ["numpy", "tvm", "metaschedule", "halide"]
+backends: ["numpy", "tvm"]
 fuzzer:
   mode: "grammar"
-  max_work_items: 48000000
+  max_work_items: 1000000
   complexity: "stress"
-  diversity_candidates: 256
-  min_complexity_score: 0.28
+  diversity_candidates: 64
+  min_complexity_score: 0.2
   complexity_weight: 0.75
   novelty_weight: 1.0
   op_weights:
