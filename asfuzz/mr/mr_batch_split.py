@@ -20,6 +20,8 @@ class BatchSplitMR(MetamorphicRelation):
             return False
         if spec.op_kind == "reduce" and int(spec.extra.get("axis", -1)) == 0:
             return False
+        if spec.op_kind in {"softmax", "softmax_decomposed"} and int(spec.extra.get("axis", -1)) == 0:
+            return False
         return spec.op_kind in {"matmul", "elementwise", "unary", "reduce", "softmax", "conv2d"}
 
     def variants(self, spec: OpSpec, inputs, seed: int):

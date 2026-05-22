@@ -250,7 +250,8 @@ def _run_cross_backend_oracle(cfg: ASFuzzConfig, spec: OpSpec, inputs, case_dir:
     reference_backend = ""
     reference_outputs = None
     timeout_sec = cfg.budget.compile_timeout_sec + cfg.budget.run_timeout_sec
-    for backend in backends:
+    ordered_backends = _cross_backend_order(spec, backends)
+    for backend in ordered_backends:
         if not backend.supports(spec):
             continue
         print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr=cross_backend start", flush=True)
@@ -311,6 +312,19 @@ def _run_cross_backend_oracle(cfg: ASFuzzConfig, spec: OpSpec, inputs, case_dir:
     if reference_outputs is None:
         skipped.append({"backend": "all", "reason": "cross_backend_no_supported_backend"})
     return False
+
+
+def _cross_backend_order(spec: OpSpec, backends) -> list:
+    available = {backend.name: backend for backend in backends}
+    if spec.dtype() == "float16":
+        # NumPy reference accumulates many ops in float64 then casts to float16,
+        # while compiler backends may legally accumulate in float16 or use a
+        # different reduction order. Use TVM as the fp16 compiler reference and
+        # compare other compiler backends against it.
+        preferred = ["tvm", "metaschedule", "halide"]
+    else:
+        preferred = ["numpy", "tvm", "metaschedule", "halide"]
+    return [available[name] for name in preferred if name in available]
 
 
 def replay_case(cfg: ASFuzzConfig, spec_path: str | Path) -> dict:

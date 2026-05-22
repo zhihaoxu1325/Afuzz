@@ -20,7 +20,7 @@ class DecompositionMR(MetamorphicRelation):
         shift_shape = list(inputs["A"].shape)
         shift_shape[axis] = 1
         shifted = {k: np.array(v, copy=True) for k, v in inputs.items()}
-        shifted["A"] = shifted["A"] + rng.normal(0, 3, size=shift_shape).astype("float32")
+        shifted["A"] = (shifted["A"].astype("float32") + rng.normal(0, 3, size=shift_shape).astype("float32")).astype(inputs["A"].dtype)
         decomposed = copy.deepcopy(spec)
         decomposed.op_kind = "softmax_decomposed"
         decomposed.name = f"{spec.name}_decomposed"
