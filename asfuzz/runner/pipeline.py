@@ -149,12 +149,10 @@ def run_one_spec(cfg: ASFuzzConfig, spec: OpSpec, index: int, cases_dir: Path, b
     case_dir = cases_dir / f"case_{index:06d}"
     case_dir.mkdir(parents=True, exist_ok=True)
     spec.save_json(case_dir / "spec.json")
-    inputs = sample_inputs(spec, cfg.seed + index)
-    np.savez(case_dir / "inputs.npz", **inputs)
 
     valid = validate(spec, cfg.fuzzer.max_work_items)
     if not valid.ok:
-        return {
+        result = {
             "case": str(case_dir),
             "spec_hash": spec.signature(),
             "op_kind": spec.op_kind,
@@ -163,6 +161,26 @@ def run_one_spec(cfg: ASFuzzConfig, spec: OpSpec, index: int, cases_dir: Path, b
             "status": "skipped",
             "skipped": valid.reasons,
         }
+        (case_dir / "result.json").write_text(json.dumps(result, indent=2, sort_keys=True))
+        return result
+
+    try:
+        inputs = sample_inputs(spec, cfg.seed + index)
+        np.savez(case_dir / "inputs.npz", **inputs)
+    except Exception as exc:
+        detail = {"exception": type(exc).__name__, "message": str(exc), "case": str(case_dir), "stage": "sample_inputs"}
+        result = {
+            "case": str(case_dir),
+            "spec_hash": spec.signature(),
+            "op_kind": spec.op_kind,
+            "work_items": work_items(spec),
+            "complexity_score": complexity_score(spec, cfg.fuzzer.max_work_items),
+            "status": "failed",
+            "failures": [{"case": str(case_dir), "backend": "harness", "mr": "input_generation", "status": "error", "detail": detail}],
+            "skipped": [],
+        }
+        (case_dir / "result.json").write_text(json.dumps(result, indent=2, sort_keys=True))
+        return result
 
     failures = []
     skipped = []
@@ -188,6 +206,9 @@ def run_one_spec(cfg: ASFuzzConfig, spec: OpSpec, index: int, cases_dir: Path, b
                 base_outputs, base_ms = run_backend_once(backend, spec, inputs, cfg.target, 0, cfg.seed, timeout_sec)
                 base_outputs = _copy_outputs(base_outputs)
                 for variant in mr.variants(spec, inputs, cfg.seed):
+                    if not backend.supports(variant.spec):
+                        skipped.append({"backend": backend.name, "mr": mr.name, "variant": variant.tag, "reason": "unsupported_variant"})
+                        continue
                     print(f"[asfuzz] case={case_dir.name} backend={backend.name} mr={mr.name} variant={variant.tag} start", flush=True)
                     out, elapsed_ms = run_backend_once(backend, variant.spec, variant.inputs, cfg.target, variant.trials, variant.seed, timeout_sec)
                     expected = variant.expected_recover_fn(base_outputs)

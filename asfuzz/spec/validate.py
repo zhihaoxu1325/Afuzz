@@ -28,6 +28,10 @@ def validate(spec: OpSpec, max_work_items: int = 4_000_000) -> ValidationResult:
         for axis in tensor.axes:
             if axis not in spec.axes:
                 reasons.append(f"tensor {tensor.name} references missing axis {axis}")
+        if tensor.role in {"input", "weight", "bias", "output"}:
+            elems = _tensor_elements(spec, tensor.name)
+            if elems > max_work_items:
+                reasons.append(f"tensor {tensor.name} elements {elems} exceeds limit {max_work_items}")
     work_items = 1
     for output in spec.tensors_by_role("output"):
         for dim in spec.shape_of(output):
@@ -67,6 +71,13 @@ def validate(spec: OpSpec, max_work_items: int = 4_000_000) -> ValidationResult:
     if spec.dtype() not in {"float32", "float16"}:
         reasons.append(f"unsupported dtype {spec.dtype()}")
     return ValidationResult(ok=not reasons, reasons=reasons, supported_backends=["numpy", "tvm"] if not reasons else [])
+
+
+def _tensor_elements(spec: OpSpec, tensor_name: str) -> int:
+    elems = 1
+    for dim in spec.shape_of(tensor_name):
+        elems *= dim
+    return int(elems)
 
 
 def _validate_shape_op(spec: OpSpec, reasons: list[str]) -> None:
