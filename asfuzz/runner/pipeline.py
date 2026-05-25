@@ -337,11 +337,25 @@ def _run_cross_backend_oracle(cfg: ASFuzzConfig, spec: OpSpec, inputs, case_dir:
 
 def _cross_backend_order(spec: OpSpec, backends) -> list:
     available = {backend.name: backend for backend in backends}
-    if spec.dtype() == "float16":
-        # NumPy reference accumulates many ops in float64 then casts to float16,
-        # while compiler backends may legally accumulate in float16 or use a
-        # different reduction order. Use TVM as the fp16 compiler reference and
-        # compare other compiler backends against it.
+    floating_reduction_ops = {
+        "matmul",
+        "conv2d",
+        "reduce",
+        "softmax",
+        "batch_matmul",
+        "layer_norm",
+        "elem_reduce",
+        "matmul_chain",
+        "matmul_softmax",
+    }
+    uses_rounding_sensitive_reduction = (
+        spec.op_kind in floating_reduction_ops
+        or (spec.op_kind == "pool2d" and spec.extra.get("op", "max") == "avg")
+    )
+    if spec.dtype() == "float16" or uses_rounding_sensitive_reduction:
+        # NumPy reference performs high-precision accumulation for reductions,
+        # while compiler backends execute the declared floating dtype. Compare
+        # compiler backends with each other for reduction-sensitive kernels.
         preferred = ["tvm", "metaschedule", "halide"]
     else:
         preferred = ["numpy", "tvm", "metaschedule", "halide"]

@@ -40,7 +40,6 @@ mrs:
   - batch_split
   - layout
   - matmul_transpose
-  - matmul_chain_assoc
   - axis_move
   - input_scale
   - reduce_split

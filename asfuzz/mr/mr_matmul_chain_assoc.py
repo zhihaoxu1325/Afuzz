@@ -12,7 +12,9 @@ class MatmulChainAssociativityMR(MetamorphicRelation):
     name = "matmul_chain_assoc"
 
     def applicable(self, spec: OpSpec) -> bool:
-        return spec.op_kind == "matmul_chain"
+        # Floating-point matrix multiplication is not associative, so it
+        # cannot provide a sound mismatch oracle for the supported dtypes.
+        return spec.op_kind == "matmul_chain" and spec.dtype() not in {"float16", "float32", "bfloat16"}
 
     def variants(self, spec: OpSpec, inputs: dict[str, np.ndarray], seed: int) -> list[MRCase]:
         new_spec = copy.deepcopy(spec)

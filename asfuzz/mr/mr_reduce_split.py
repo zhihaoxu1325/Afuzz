@@ -14,7 +14,9 @@ class ReduceSplitMR(MetamorphicRelation):
     def applicable(self, spec: OpSpec) -> bool:
         if spec.op_kind != "reduce":
             return False
-        if spec.extra.get("op") not in {"sum", "mean"}:
+        # Sum and mean change floating accumulation order when split.  Max is
+        # exact under regrouping and remains useful as a compiler oracle.
+        if spec.extra.get("op") != "max":
             return False
         axis = int(spec.extra["axis"])
         extent = spec.shape_of("A")[axis]

@@ -132,7 +132,8 @@ def run_reference(spec: OpSpec, inputs: dict[str, np.ndarray]) -> dict[str, np.n
         kw = spec.axes["KW"].size
         oh = spec.axes["OH"].size
         ow = spec.axes["OW"].size
-        padded = np.pad(a, ((0, 0), (pad, pad), (pad, pad), (0, 0)), constant_values=-np.inf if op == "max" else 0)
+        min_value = np.finfo(np.dtype(spec.dtype())).min
+        padded = np.pad(a, ((0, 0), (pad, pad), (pad, pad), (0, 0)), constant_values=min_value if op == "max" else 0)
         out = np.zeros((n, oh, ow, c), dtype="float64")
         for yy in range(oh):
             for xx in range(ow):

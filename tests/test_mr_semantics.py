@@ -33,6 +33,7 @@ def test_batch_split_rejects_softmax_on_split_axis():
 
 def test_layout_conv2d_swap_hw():
     _assert_variant_matches_reference(LayoutMR(), make_conv2d(1, 5, 7, 2, 3, 3, 1, pad=1))
+    assert not LayoutMR().applicable(make_conv2d(1, 5, 7, 2, 3, 3, 3, pad=1))
 
 
 def test_softmax_decomposition():
@@ -68,12 +69,14 @@ def test_input_scale_reduce_and_matmul():
 
 
 def test_reduce_split():
-    _assert_variant_matches_reference(ReduceSplitMR(), make_reduce([3, 8, 5], axis=1, op="sum"))
-    _assert_variant_matches_reference(ReduceSplitMR(), make_reduce([3, 16, 5], axis=1, op="mean", keepdims=True))
+    _assert_variant_matches_reference(ReduceSplitMR(), make_reduce([3, 8, 5], axis=1, op="max"))
+    assert not ReduceSplitMR().applicable(make_reduce([3, 16, 5], axis=1, op="sum"))
+    assert not ReduceSplitMR().applicable(make_reduce([3, 16, 5], axis=1, op="mean", keepdims=True))
 
 
-def test_matmul_chain_associativity():
-    _assert_variant_matches_reference(MatmulChainAssociativityMR(), make_matmul_chain(3, 4, 5, 6))
+def test_matmul_chain_associativity_rejects_floating_point():
+    assert not MatmulChainAssociativityMR().applicable(make_matmul_chain(3, 4, 5, 6))
+    assert not MatmulChainAssociativityMR().applicable(make_matmul_chain(3, 4, 5, 6, dtype="float16"))
 
 
 def test_shape_identity_roundtrips():

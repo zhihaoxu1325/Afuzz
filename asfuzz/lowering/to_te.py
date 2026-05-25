@@ -199,7 +199,7 @@ def _lower_reduce_split(spec: OpSpec):
     op = spec.extra.get("op", "sum")
     keepdims = bool(spec.extra.get("keepdims", False))
     factor = int(spec.extra.get("split_factor", 2))
-    if op not in {"sum", "mean"} or in_shape[axis] % factor != 0:
+    if op not in {"sum", "mean", "max"} or in_shape[axis] % factor != 0:
         return _lower_reduce(spec)
     chunks = in_shape[axis] // factor
     A = te.placeholder(in_shape, name="A", dtype=dtype)
@@ -212,7 +212,10 @@ def _lower_reduce_split(spec: OpSpec):
         idx[axis] = temp_idx[axis] * factor + r_inner
         return tuple(idx)
 
-    Temp = te.compute(temp_shape, lambda *idx: te.sum(A[temp_input_idx(idx)], axis=r_inner), name="SplitReduceTemp")
+    if op == "max":
+        Temp = te.compute(temp_shape, lambda *idx: te.max(A[temp_input_idx(idx)], axis=r_inner), name="SplitReduceTemp")
+    else:
+        Temp = te.compute(temp_shape, lambda *idx: te.sum(A[temp_input_idx(idx)], axis=r_inner), name="SplitReduceTemp")
 
     def temp_at_output(out_idx):
         temp_idx = []
@@ -227,7 +230,10 @@ def _lower_reduce_split(spec: OpSpec):
                 out_pos += 1
         return tuple(temp_idx)
 
-    Acc = te.compute(out_shape, lambda *idx: te.sum(Temp[temp_at_output(idx)], axis=r_outer), name="Acc")
+    if op == "max":
+        Acc = te.compute(out_shape, lambda *idx: te.max(Temp[temp_at_output(idx)], axis=r_outer), name="Acc")
+    else:
+        Acc = te.compute(out_shape, lambda *idx: te.sum(Temp[temp_at_output(idx)], axis=r_outer), name="Acc")
     if op == "mean":
         C = te.compute(out_shape, lambda *idx: Acc[idx] / _tir.const(in_shape[axis], dtype), name="C")
     else:
@@ -458,7 +464,8 @@ def _lower_pool2d(spec: OpSpec):
         in_y = yy * stride + rkh - pad
         in_x = xx * stride + rkw - pad
         valid = (in_y >= 0) & (in_y < h) & (in_x >= 0) & (in_x < w)
-        fill = _tir.const(-3.4028234663852886e38, dtype) if op == "max" else _tir.const(0, dtype)
+        min_value = -65504.0 if dtype == "float16" else -3.4028234663852886e38
+        fill = _tir.const(min_value, dtype) if op == "max" else _tir.const(0, dtype)
         return te.if_then_else(valid, A[nn, in_y, in_x, cc], fill)
 
     if op == "avg":

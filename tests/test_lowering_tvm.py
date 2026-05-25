@@ -83,3 +83,23 @@ def test_tvm_shape_model_and_composite_ops_match_reference():
         actual = backend.run(backend.schedule_and_build(spec, "llvm", 0, seed), inputs)["C"]
         expected = run_reference(spec, inputs)["C"]
         assert numeric_equal(expected, actual, spec.dtype(), rtol=1e-3, atol=1e-4).ok
+
+
+def test_tvm_max_pool_padding_matches_reference_for_float16_and_excess_padding():
+    backend = TVMBackend()
+    for dtype in ["float32", "float16"]:
+        spec = make_pool2d(1, 1, 1, 1, 2, 2, stride=1, pad=3, op="max", dtype=dtype)
+        inputs = sample_inputs(spec, 201)
+        actual = backend.run(backend.schedule_and_build(spec, "llvm", 0, 201), inputs)["C"]
+        expected = run_reference(spec, inputs)["C"]
+        assert numeric_equal(expected, actual, dtype).ok
+
+
+def test_tvm_reduce_split_max_matches_reference():
+    spec = make_reduce([2, 8, 3], axis=1, op="max")
+    spec.op_kind = "reduce_split"
+    spec.extra["split_factor"] = 2
+    inputs = sample_inputs(spec, 202)
+    actual = TVMBackend().run(TVMBackend().schedule_and_build(spec, "llvm", 0, 202), inputs)["C"]
+    expected = run_reference(spec, inputs)["C"]
+    assert numeric_equal(expected, actual, spec.dtype()).ok

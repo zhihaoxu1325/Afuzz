@@ -12,7 +12,11 @@ class LayoutMR(MetamorphicRelation):
     name = "layout"
 
     def applicable(self, spec: OpSpec) -> bool:
-        return spec.op_kind == "conv2d" and spec.layout == "NHWC"
+        if spec.op_kind != "conv2d" or spec.layout != "NHWC":
+            return False
+        # Swapping two non-trivial kernel axes also swaps floating reduction
+        # order.  Keep this relation exact by requiring one singleton axis.
+        return spec.axes["KH"].size == 1 or spec.axes["KW"].size == 1
 
     def variants(self, spec: OpSpec, inputs, seed: int):
         new_spec = copy.deepcopy(spec)
